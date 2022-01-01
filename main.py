@@ -12,7 +12,7 @@ def get_tracking(*args: str):
     """Returns the latest available shipping info from Aftership
 
     Args:
-      args: one or more YunExpress tracking numbers
+      args: one or more tracking numbers
 
     Returns:
       a dictionary in the form {tracking_id: [last_update_time, checkpoint_msg, raw_location (if possible)]}
@@ -40,7 +40,7 @@ def get_tracking(*args: str):
         data = {
             "tracking_number": id,
             "additional_fields": {},
-            "slug": "yunexpress"
+            # "slug": "yunexpress" # - this line may not be necessary
         }
         payload["direct_trackings"].append(data)
 
@@ -55,8 +55,8 @@ def get_tracking(*args: str):
         num = tracking["tracking_number"]
         if tracking["tracking"]["checkpoints"]:
             latest_msg = [
-                tracking["tracking"]["checkpoints"][-1]["message"],
-                tracking["tracking"]["checkpoints"][-1]["date_time"]
+                tracking["tracking"]["checkpoints"][-1]["date_time"],
+                tracking["tracking"]["checkpoints"][-1]["message"]
             ]
             if tracking["tracking"]["checkpoints"][-1]["address"]:
                 latest_msg.append(
@@ -145,13 +145,18 @@ if __name__ == "__main__":
             # find the index of each tracking number
             # allowing us to insert the status message into the relevant field
             idx = tracking_to_list_index[tracking_num]
-            order_results[idx]["shipping_status"] = status
+
+            # msg + location
+            order_results[idx]["shipping_status"] = status[1:]
+
+            # updated_time is a separate field
+            order_results[idx]["updated_at"] = status[0]
 
     # convert list to dataframe
     df = pd.DataFrame(order_results)
 
     # column names - change as needed
-    cols = ['name', 'created_at', 'customer_name', 'email',  'tracking_company',
+    cols = ['name', 'created_at', 'updated_at', 'customer_name', 'email',  'tracking_company',
             'tracking_number', 'tracking_urls', 'shipping_status']
     df = df[cols]
 
