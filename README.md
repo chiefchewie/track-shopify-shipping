@@ -7,7 +7,7 @@ Working for Python 3.10 as of Jan 2 2022
 
 1. [About this project](#about-this-project)
 2. [Creating a Shopify private app](#creating-a-shopify-private-app)
-3. [Setting up the Python environment](#setting-up-the-python-environment)
+3. [Setting up the environment](#setting-up-the-environment)
 4. [Running the program](#running-the-program)
 
 ## About this project
@@ -38,7 +38,7 @@ Steps:
 5. In the **Admin API** section, select the areas of your store that you want the app to be able to access.
 6. Click **save.**
 
-## Setting up the Python environment
+## Setting up the environment
 
 ### System Requirements
 
@@ -64,5 +64,11 @@ Simply run the Python script. Example:
 ```shell
 python main.py
 ```
+
+### Notes
+
+-   The output Excel is located at /output and named `orders.xlsx`
+-   There are many attributes not captured by this program
+-   Check out Shopify Developer's [documentation](https://shopify.dev/api/admin-rest/2021-10/resources/order#top) for the `Order` object and add any keys to the `useful_keys` list if you want them
 
 Thanks for stopping by and checking out my program!
