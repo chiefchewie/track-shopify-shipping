@@ -72,7 +72,7 @@ if __name__ == "__main__":
     load_dotenv()
 
     API_KEY = os.getenv("API_KEY")
-    PASSWORD = os.getenv("API_SECRET")
+    PASSWORD = os.getenv("PASSWORD")
     SHOP_NAME = os.getenv("SHOP_NAME")
 
     API_VERSION = "2021-10"
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     ]
 
     # get all orders
-    all_orders = shopify.Order.find(limit=250)
+    all_orders = shopify.Order.find(limit=20)
 
     # list of all parsed orders
     order_results = []
@@ -115,7 +115,7 @@ if __name__ == "__main__":
         attrs["tracking_number"] = ""
         attrs["tracking_urls"] = ""
         attrs["shipping_status"] = ""
-
+        attrs["updated_at"] = ""
         # note - only works with one fulfillment and one tracking number
         if attrs["fulfillments"]:
             # TODO this returns an array - this code only deals with the first element
