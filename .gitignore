@@ -3,3 +3,4 @@
 .vscode/
 output/
 __pycache__/
+*.xlsx
