@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from pathlib import Path
 
 import httpx
 import pandas as pd
@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from tqdm import tqdm
 
 import shopify
-from tracker import get_tracking
+from tracker import track_v2
 
 
 def get_all_orders():
@@ -23,8 +23,6 @@ def get_all_orders():
 
 
 if __name__ == "__main__":
-    start_time = datetime.now()
-
     load_dotenv()
     API_KEY = os.getenv("API_KEY")
     APP_PASSWORD = os.getenv("APP_PASSWORD")
@@ -36,43 +34,58 @@ if __name__ == "__main__":
     with shopify.Session.temp(shop_url, API_VERSION, APP_PASSWORD):
         all_orders = get_all_orders()
 
-    keys = (
-        "created_at",
-        "email",
-        "fulfillments",
-        "name",
-    )
+    keys = ("created_at", "email", "fulfillments", "name")
 
     order_results = []
+    all_tracking_numbers = []
+    tracking_num_to_index = {}
+
+    for i, o in tqdm(enumerate(all_orders)):
+        order = {key: o.attributes[key] for key in keys}
+
+        order["tracking_numbers"] = []
+        order["tracking_urls"] = []
+
+        order["last_update_time"] = []
+        order["shipping_status"] = []
+        order["last_event"] = []
+        order["events"] = []
+
+        if order["fulfillments"]:
+            for fulfillment in order["fulfillments"]:
+                for track_num in fulfillment.tracking_numbers:
+                    order["tracking_numbers"].append(track_num)
+
+                    all_tracking_numbers.append(track_num)
+                    tracking_num_to_index[track_num] = i
+
+                for track_url in fulfillment.tracking_urls:
+                    order["tracking_urls"].append(track_url)
+
+        del order["fulfillments"]  # don't need this in the final Excel sheet
+        order_results.append(order)
 
     with httpx.Client() as client:
-        for o in tqdm(all_orders):
-            order = {key: o.attributes[key] for key in keys}
+        while all_tracking_numbers:
+            queued_trackings = []
+            for _ in range(min(250, len(all_tracking_numbers))):
+                queued_trackings.append(all_tracking_numbers.pop())
 
-            order["tracking_numbers"] = []
-            order["tracking_urls"] = []
-            order["last_update_time"] = []
-            order["shipping_status"] = []
-            order["events"] = []
+            parsed_trackings = track_v2(client, *queued_trackings)
+            for pt in parsed_trackings:
+                number = pt["tracking_number"]
+                index = tracking_num_to_index[number]
 
-            if order["fulfillments"]:
-                for fulfillment in order["fulfillments"]:
-                    for track_num in fulfillment.tracking_numbers:
-                        status = get_tracking(client, track_num)
+                last_event = pt["last_event"]
 
-                        order["tracking_numbers"].append(track_num)
-                        order["last_update_time"].append(status["last_update_time"])
-                        order["shipping_status"].append(status["shipping_status"])
-                        order["events"] += status["events"]
+                order_results[index]["last_update_time"].append(
+                    last_event["process_date"])
+                order_results[index]["shipping_status"].append(
+                    pt["delivery_status"])
+                order_results[index]["last_event"] = set(
+                    pt["last_event"].values())
+                order_results[index]["events"] += pt["event_list"]
 
-                    for track_url in fulfillment.tracking_urls:
-                        order["tracking_urls"].append(track_url)
-
-            order_results.append(order)
-
+    Path("output").mkdir(parents=True, exist_ok=True)
     df = pd.DataFrame(order_results)
-    df.drop("fulfillments", axis=1, inplace=True)
-    df.to_excel("orders.xlsx")
-
-    end_time = datetime.now()
-    print("Duration: {}".format(end_time - start_time))
+    df.to_excel("output/orders.xlsx")

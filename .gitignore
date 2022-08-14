@@ -1,6 +1,4 @@
-.env
 .venv/
-.vscode/
-output/
 __pycache__/
-*.xlsx
+output/
+.env

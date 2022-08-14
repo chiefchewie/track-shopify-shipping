@@ -1,53 +1,63 @@
+from turtle import ht
 import httpx
-def get_tracking(client: httpx.Client, tracking_number: str):
 
-    url = f"https://api.ship24.com/api/parcels/{tracking_number}?lang=en"
 
-    json_payload = {
-        "userAgent": "",
-        "os": "Windows",
-        "browser": "MS-Edge-Chromium",
-        "device": "Unknown",
-        "os_version": "windows-10",
-        "browser_version": "104.0.1293.54",
-        "uL": "en-CA",
-    }
+def track_v2(client: httpx.Client, *tracking_numbers: str):
+    url = "http://services.yuntrack.com/Track/Query"
 
     headers = {
-        "authority": "api.ship24.com",
-        "accept": "application/json, text/plain, */*",
-        "accept-language": "en-CA,en;q=0.9",
-        "content-type": "application/json",
-        "origin": "https://www.ship24.com",
-        "referer": "https://www.ship24.com/",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "en-CA,en;q=0.9",
+        "Authorization": "Nebula token:undefined",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json",
+        "Origin": "https://www.yuntrack.com",
+        "Referer": "https://www.yuntrack.com/",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-site",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.5112.81 Safari/537.36 Edg/104.0.1293.54",
         "sec-ch-ua": '"Chromium";v="104", " Not A;Brand";v="99", "Microsoft Edge";v="104"',
         "sec-ch-ua-mobile": "?0",
         "sec-ch-ua-platform": '"Windows"',
-        "sec-fetch-dest": "empty",
-        "sec-fetch-mode": "cors",
-        "sec-fetch-site": "same-site",
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.5112.81 Safari/537.36 Edg/104.0.1293.54",
-        "x-ship24-token": "225,150,128,44,49,54,54,48,53,48,51,56,56,51,57,54,49,44,225,150,130",
+    }
+
+    json_payload = {
+        "NumberList": [n for n in tracking_numbers],
+        "CaptchaVerification": "",
+        "Year": 0,
     }
 
     response = client.post(url=url, headers=headers, json=json_payload)
+    if (response.is_error):
+        print("Error occured!!")
+        print(response)
+        print(response.text)
+        return []
 
-    info = response.json()
+    parsed_info = []
+    result_list = response.json()["ResultList"]
+    for res in result_list:
 
-    last_update_time = info["data"]["events"][0]["datetime"]
+        track_info = res["TrackInfo"]
+        last_event = track_info["LastTrackEvent"]
 
-    events = [e["status"] for e in info["data"]["events"]]
+        info = {"tracking_number": res["Id"]}
+        info["last_event"] = {
+            "process_date": last_event["ProcessDate"],
+            "process_content": last_event["ProcessContent"],
+            "process_location": last_event["ProcessLocation"],
+            "status": last_event["TrackCodeNameEx"],
+        }
+        info["event_list"] = track_info["TrackEventDetails"]
+        info["delivery_status"] = res["TrackData"]["TrackStatus"]
 
-    shipping_status = info["data"]["dispatch_code"]["desc"]
+        parsed_info.append(info)
 
-    return {
-        "last_update_time": last_update_time,
-        "events": events,
-        "shipping_status": shipping_status,
-    }
+    return parsed_info
 
 
 if __name__ == "__main__":
     with httpx.Client() as client:
-        get_tracking(client, "YT2221521272091049")
-        get_tracking(client, "YT2222421272086922")
+        r = track_v2(client, "YT2221521272091049", "YT2222421272086922")
+        print(r)
